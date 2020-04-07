@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+  <style>
+    .branding-below {
+      bottom: 56px;
+      top: 0;
+    }
+
+    .branding-text {
+      left: 7px;
+      position: relative;
+      top: 3px;
+    }
+
+    .col-contain {
+      overflow: hidden;
+      left: 25px;
+    }
+
+    .col-one {
+      float: left;
+      width: 50%;
+    }
+
+    .text-spacer {
+      height: 20px;
+    }
+
+    .width-50 {
+      width: 50%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="block col-contain">
+    <div class="col-one">
+      <form>
+        <div class="block col-contain">
+        </div>
+        <div class="block col-contain">
+          <div padding-top="50px" padding-bottom="50px">
+            <label for="radio-origin-auto">Table starts from:</label><br>
+            <input type="radio" id="2" name="startval" value="2" checked>
+            <label for="2">2 </label>
+            <input type="radio" id="3" name="startval" value="3">
+            <label for="3">3</label>
+            <input type="radio" id="4" name="startval" value="4">
+            <label for="4">4</label>
+            <input type="radio" id="5" name="startval" value="5">
+            <label for="5">5</label>
+            <input type="radio" id="6" name="startval" value="6">
+            <label for="6">6</label>
+            <input type="radio" id="7" name="startval" value="7">
+            <label for="7">7</label>
+            <input type="radio" id="8" name="startval" value="8">
+            <label for="8">8</label>
+            <input type="radio" id="9" name="startval" value="9">
+            <label for="9">9</label>
+            <input type="radio" id="10" name="startval" value="10">
+            <label for="10">10</label>
+            <input type="radio" id="11" name="startval" value="11">
+            <label for="11">11</label>
+            <input type="radio" id="12" name="startval" value="12">
+            <label for="12">12</label>
+          </div>
+          <br>
+          <div top-pad="50px" padding-bottom="50px">
+            <label for="radio-origin-auto">Table ends at:</label><br>
+            <input type="radio" id="2" name="endval" value="2">
+            <label for="2">2</label>
+            <input type="radio" id="3" name="endval" value="3">
+            <label for="3">3 </label>
+            <input type="radio" id="4" name="endval" value="4">
+            <label for="4">4 </label>
+            <input type="radio" id="5" name="endval" value="5">
+            <label for="5">5 </label>
+            <input type="radio" id="6" name="endval" value="6">
+            <label for="6">6 </label>
+            <input type="radio" id="7" name="endval" value="7">
+            <label for="7">7</label>
+            <input type="radio" id="8" name="endval" value="8">
+            <label for="8">8</label>
+            <input type="radio" id="9" name="endval" value="9">
+            <label for="9">9</label>
+            <input type="radio" id="10" name="endval" value="10">
+            <label for="10">10</label>
+            <input type="radio" id="11" name="endval" value="11">
+            <label for="11">11</label>
+            <input type="radio" id="12" name="endval" value="12" checked>
+            <label for="12">12</label>
+          </div>
+          <br>
+          <div top-pad="50px" padding-bottom="50px">
+            <label for="radio-origin-auto">Maximum number of questions:</label><br>
+            <input type="text" name="questions" value="50" size="5px"><br><br>
+          </div>
+        </div>
+        <div class="block" id="button-bar">
+          <button class="blue" id="generate-questions">Generate Questions</button>
+        </div>
+        <br>
+        <div class="block" id="button-bar">
+          <button class="blue" id="check-answers">Check Answers</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>
+    $(function () {
+      $('#generate-questions').click(generateQuestions);
+      $('#check-answers').click(checkAnswers);
+    });
+
+    function generateQuestions() {
+      // var tblStart = $('input[name=startval]').val();
+      //var tblEnd = $('input[name=endval]').val();
+      var tblStart = getSelectedValue (document.getElementsByName('startval'));
+      var tblEnd = getSelectedValue (document.getElementsByName('endval'));
+
+      var questions = $('input[name=questions]').val();
+
+      // var ele = document.getElementsByName('startval');
+
+      google.script.run.buildMultiplicationTable(tblStart,tblEnd,questions);
+      google.script.run.withSuccessHandler(loadPreferences)
+        .withFailureHandler(showError).getPreferences();
+    }
+
+    function getSelectedValue(ele) {
+      for(i = 0; i < ele.length; i++) {
+        if(ele[i].checked)
+          return ele[i].value;
+      }
+    }
+
+    function checkAnswers() {
+      google.script.run.checkWork();
+    }
+
+    function loadPreferences(languagePrefs) {
+      $('input:text[name="startval"]')
+        .attr('value', languagePrefs.tableStart);
+      $('input:text[name="endval"]')
+        .filter('[value=' + languagePrefs.tableEnd + ']')
+        .attr('value', languagePrefs.tableEnd);
+      $('input:text[name="questions"]')
+        .filter('[value=' + languagePrefs.noOfQuestions + ']')
+        .attr('value', languagePrefs.noOfQuestions);
+    }
+  </script>
+</body>
+
+</html>
