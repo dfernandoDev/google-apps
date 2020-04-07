@@ -64,68 +64,68 @@ function onOpen(e) {
 }
 
 function build2sTable() {
-  buildMultiplicationTable(2,2,50);
+  buildMultiplicationTable(2,2,50,false,false);
 }
 function build3sTable() {
-  buildMultiplicationTable(3,3,50);
+  buildMultiplicationTable(3,3,50,false,false);
 }
 function build4sTable() {
-  buildMultiplicationTable(4,4,50);
+  buildMultiplicationTable(4,4,50,false,false);
 }
 function build5sTable() {
-  buildMultiplicationTable(5,5,50);
+  buildMultiplicationTable(5,5,50,false,false);
 }
 function build6sTable() {
-  buildMultiplicationTable(6,6,50);
+  buildMultiplicationTable(6,6,50,false,false);
 }
 function build7sTable() {
-  buildMultiplicationTable(7,7,50);
+  buildMultiplicationTable(7,7,50,false,false);
 }
 function build8sTable() {
-  buildMultiplicationTable(8,8,50);
+  buildMultiplicationTable(8,8,50,false,false);
 }
 function build9sTable() {
-  buildMultiplicationTable(9,9,50);
+  buildMultiplicationTable(9,9,50,false,false);
 }
 function build10sTable() {
-  buildMultiplicationTable(10,10,50);
+  buildMultiplicationTable(10,10,50,false,false);
 }
 function build11sTable() {
-  buildMultiplicationTable(11,11,50);
+  buildMultiplicationTable(11,11,50,false,false);
 }
 function build12sTable() {
-  buildMultiplicationTable(12,12,50);
+  buildMultiplicationTable(12,12,50,false,false);
 }
 
 function build2to3Table() {
-  buildMultiplicationTable(2,3,50);
+  buildMultiplicationTable(2,3,50,true,true);
 }
 function build2to4Table() {
-  buildMultiplicationTable(2,4,50);
+  buildMultiplicationTable(2,4,50,true,true);
 }
 function build2to5Table() {
-  buildMultiplicationTable(2,5,50);
+  buildMultiplicationTable(2,5,50,true,true);
 }
 function build2to6Table() {
-  buildMultiplicationTable(2,6,50);
+  buildMultiplicationTable(2,6,50,true,true);
 }
 function build2to7Table() {
-  buildMultiplicationTable(2,7,50);
+  buildMultiplicationTable(2,7,50,true,true);
 }
 function build2to8Table() {
-  buildMultiplicationTable(2,8,50);
+  buildMultiplicationTable(2,8,50,true,true);
 }
 function build2to9Table() {
-  buildMultiplicationTable(2,9,50);
+  buildMultiplicationTable(2,9,50,true,true);
 }
 function build2to10Table() {
-  buildMultiplicationTable(2,10,50);
+  buildMultiplicationTable(2,10,50,true,true);
 }
 function build2to11Table() {
-  buildMultiplicationTable(2,11,50);
+  buildMultiplicationTable(2,11,50,true,true);
 }
 function build2to12Table() {
-  buildMultiplicationTable(2,12,50);
+  buildMultiplicationTable(2,12,50,true,true);
 }
 
 /**
@@ -134,13 +134,16 @@ function build2to12Table() {
  * the mobile add-on version.
  */
 function showSidebar() {
-  //var ui = HtmlService.createHtmlOutputFromFile('sidebar')
-  //    .setTitle('Range Selector');
-  // DocumentApp.getUi().showSidebar(ui);
+  var html = HtmlService.createHtmlOutputFromFile('sidebarTextbox')
+      .setTitle('Range Selector');
 
-  var html = HtmlService.createTemplateFromFile("sidebar")
-    .evaluate()
-    .setTitle('Range Selector');
+//  var html = HtmlService.createTemplateFromFile("sidebarRadioBtn")
+//    .evaluate()
+//    .setTitle('Range Selector');
+
+//  var html = HtmlService.createTemplateFromFile("sidebarTextbox")
+//    .evaluate()
+//    .setTitle('Range Selector');
 
   DocumentApp.getUi().showSidebar(html);
 }
@@ -171,8 +174,8 @@ function setPreferences(tableStart, tableEnd, noOfQuestions) {
         .setProperty('noOfQuestions', noOfQuestions);
 }
 
-function buildMultiplicationTable(tstart, tend, noOfQuestions) {
-  // Logger.log("Values s:" + tstart + " e:" + tend + " q:" + noOfQuestions);
+function buildMultiplicationTable(tstart, tend, noOfQuestions, randomize, reversal) {
+  Logger.log("Values s:" + tstart + " e:" + tend + " q:" + noOfQuestions + " rnd:" + randomize + " rev:" + reversal);
   var doc = DocumentApp.getActiveDocument();
   var body = doc.getBody();
 
@@ -181,7 +184,7 @@ function buildMultiplicationTable(tstart, tend, noOfQuestions) {
   var para = body.getChild(0);
   para.asParagraph().clear();
 
-  var questions = BuildQuestions (tstart,tend, noOfQuestions);
+  var questions = BuildQuestions (tstart,tend, noOfQuestions, randomize, reversal);
   for (var i = 0; i < questions.length; i++) {
     para.appendText("[" + (i + 1) + "] " + questions[i] + " \n");
     //para.appendText(questions[i] + "\n");
@@ -190,6 +193,13 @@ function buildMultiplicationTable(tstart, tend, noOfQuestions) {
   para.setLineSpacing(2.1);
   var text = body.editAsText();
   text.setFontSize(15);
+
+  PropertiesService.getUserProperties()
+    .setProperty('start', tstart)
+    .setProperty('stop', tend)
+    .setProperty('questions', noOfQuestions)
+    .setProperty('randomize', randomize)
+    .setProperty('reversal', reversal);
 }
 
 function checkWork() {
@@ -233,14 +243,19 @@ function isCorrect(question) {
   return isValid;
 }
 
-function BuildQuestions(tablestart, tableend, numberofquestions) {
-  var table = GenerateTables(tablestart,tableend);
-  var questions = GenerateQuestions(table, numberofquestions);
+function BuildQuestions(tablestart, tableend, numberofquestions, randomize, reversal) {
+  var table = GenerateTables(tablestart, tableend, reversal);
+  //var questions = GenerateQuestions(table, numberofquestions);
+  var questions = table;
+
+  if (randomize) {
+    questions = GenerateQuestions(table, numberofquestions);
+  }
 
   return questions;
 }
 
-function GenerateTables(tablestart,tableend) {
+function GenerateTables(tablestart,tableend, reversal) {
   var table = [];
   //var numberofquestions = 10;
 
@@ -255,10 +270,12 @@ function GenerateTables(tablestart,tableend) {
 
   // generate table for higher values but limit given range
   // this is to generate opposites 2x6 -> 6x2
-  for(var i = 2; i <= 12; i++) {
-    for(var j = tablestart; j <= tableend; j++) {
-      if (i < tablestart || i > tableend) {
-        table.push(i + " x " + j + " =");
+  if (reversal) {
+    for(var i = 2; i <= 12; i++) {
+      for(var j = tablestart; j <= tableend; j++) {
+        if (i < tablestart || i > tableend) {
+          table.push(i + " x " + j + " =");
+        }
       }
     }
   }
