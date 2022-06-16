@@ -12,10 +12,10 @@ function getLocationData() {
     var address = body.getChild(e++).asText().getText();
     location['address'] = address;
     var city_state = body.getChild(e++).asText().getText();
-    location['address'] = address;
+    location['city_state'] = city_state;
     var phone = body.getChild(e++).asText().getText();
     if (phone.indexOf('+')>=0) {
-      var match = phone.substring(phone.indexOf('+')+2).match(/^(\d{3})(\d{3})(\d{4})$/);
+      var match = phone.substring(phone.indexOf('+') + 2).match(/^(\d{3})(\d{3})(\d{4})$/);
       phone = '(' + match[1] + ') ' + match[2] + '-' + match[3];
     }
     else {
@@ -23,17 +23,16 @@ function getLocationData() {
       phone = '(' + match[1] + ') ' + match[2] + '-' + match[3];
     }
     location['phone'] = phone;
-    var house_no = address.substring(0,(address.indexOf(' ')));
-    location['house_no'] = house_no;
+    var house_num = address.substring(0,(address.indexOf(' ')));
+    location['house_num'] = house_num;
     var street = address.substring(address.indexOf(' ')+1);
     location['street'] = street;
     var city = city_state.substring(0,city_state.indexOf(','));
     location['city'] = city;
-    var no_state = city_state.substring(city_state.indexOf(' ')+1);
-    location['no_state'] = no_state;
+    var no_state = city_state.substring(city_state.indexOf(' ') + 1);
     var state = no_state.substring(0,no_state.indexOf(' '));
     location['state'] = state;
-    var zip = no_state.substring(no_state.indexOf(' ')+1);
+    var zip = no_state.substring(no_state.indexOf(' ') + 1);
     location['zip'] = zip;
     prospects.locations.push(location);
   }
@@ -52,7 +51,7 @@ function exportDoc() {
   for (let location in prospects.locations) {
     // <street> <house number>, <zip code> <city>, <state>, <country>
     // https://docs.routexl.com/index.php/Import
-    var geostring = prospects.locations[location].street + ' ' + prospects.locations[location].house_no + ',' + prospects.locations[location].zip + ' ' + prospects.locations[location].city 
+    var geostring = prospects.locations[location].street + ' ' + prospects.locations[location].house_num + ',' + prospects.locations[location].zip + ' ' + prospects.locations[location].city 
         + ',' + prospects.locations[location].state + ',US,@' + prospects.locations[location].company + '@' 
         + '{' + prospects.locations[location].address + '<br />' + prospects.locations[location].city_state + '<br />' + prospects.locations[location].phone + '}';
     //body.getChild(e).asParagraph().appendText(geostring);
