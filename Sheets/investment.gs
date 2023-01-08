@@ -30,7 +30,9 @@ function onOpen() {
   menu.addItem('Update Formula', 'UpdateFormula');
   menu.addItem('Update Ticker Summary', 'TickerSummary');
   menu.addItem('Rearrange Data', 'RearrangeData');
-  
+  menu.addSeparator();
+  menu.addItem('Reformat ML Export', 'ReformatMLExport');
+
   menu.addToUi();
 }
 
@@ -402,8 +404,8 @@ function Convert2OptionSymbol() {
     //option = option.slice(0,ndx) + " " + option.slice(ndx);
 
     // (\d{4}.\d*.\d{2})|(\d{2}.\d*.\d{4})|(\d{2}[^A-Za-z0-9.]\d{2}|[A-z]{3}\s\d{2},.\d{4})
-    var arrdate = option.match(/(\d{4}.\d*.\d{2})|(\d{2}.\d*.\d{4})|([A-Z]{3}.\d{2},.\d{4}|(\d{2}))|([A-Z]{3}.\d{2}.\d{4}|(\d{2}))/i);
-    var date = new Date(arrdate[0]);
+    var arrdate = option.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})|(\s[A-Z]{3}.\d{1,2},.\d{4})|(\s\d{1,2}.[A-Z]{3}.\d{1,2})/gi);
+    var date = new Date(arrdate[0].trim());
     date.toLocaleDateString("en-US",{month: '2-digit', day: '2-digit', year: 'numeric'})
     var sdate = date.getFullYear().toString().substring(2) + (date.getMonth()+1).toString().padStart(2,'0') + date.getDate().toString().padStart(2,'0')
     var ldate = [(date.getMonth()+1).toString().padStart(2,'0'), date.getDate().toString().padStart(2,'0'), date.getFullYear()].join('/');
@@ -534,3 +536,67 @@ function InsertOption(form){
   var row = [form.name, form.feedback, form.rating];
 }
 
+
+function ReformatMLExport(){
+  var activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var row = activesheet.getActiveCell().getRow();
+  var col = activesheet.getActiveCell().getColumn();
+
+  if (col == 1) {
+    var orders = new Map();
+    do {
+      var action = activesheet.getRange("D" + row).getValue();
+      var arrAction = action.match(/(Sell|Buy)/i);
+      action = arrAction[0];
+      var optioncall = activesheet.getRange("E" + row).getValue();
+      var qty = activesheet.getRange("F" + row).getValue();
+      var price = activesheet.getRange("K" + row).getValue();
+      var arrPrice = price.match(/\d{1,3}.\d{2}/);
+
+      if (Array.isArray(arrPrice)) {
+        price = arrPrice[0];
+        if (orders.has(optioncall)){
+
+          if (action == "Buy") {
+            orders.get(optioncall).BuyQty = orders.get(optioncall).BuyQty + " + " + qty;
+            orders.get(optioncall).BuyPrice = orders.get(optioncall).BuyPrice + " + " + price;
+          }
+          if (action == "Sell") {
+            orders.get(optioncall).SellQty = orders.get(optioncall).SellQty + " + " + qty;
+            orders.get(optioncall).SellPrice = orders.get(optioncall).SellPrice + " + " + price;
+          }
+        }
+        else {
+          if (action == "Buy") {
+            orders.set(optioncall,{BuyQty : qty, BuyPrice : price, SellQty : "0", SellPrice : "0"});
+          }
+          if (action == "Sell") {
+            orders.set(optioncall,{BuyQty : "0", BuyPrice : "0", SellQty : qty, SellPrice : qty});
+          }
+        }
+      }
+
+      row = row - 1;
+    } while (row > 1)
+
+    row = 2;
+    for ( let [id,order] of orders.entries()){
+      activesheet.getRange("N" + row).setValue(id);
+      var qty = order.BuyQty;
+      if (qty.length > 4) {
+        qty = qty.replace(/^0\s\+\s/,"")
+      }
+      activesheet.getRange("O" + row).setValue("=" + qty);
+      var price = order.BuyPrice.replace(/^0\s\+\s/,"");
+      activesheet.getRange("P" + row).setValue(price);
+      qty = order.SellQty;
+      if (qty.length > 4) {
+        qty = qty.replace(/^0\s\+\s/,"")
+      }
+      activesheet.getRange("Q" + row).setValue("=" + qty);
+      price = order.SellPrice.replace(/^0\s\+\s/,"");
+      activesheet.getRange("R" + row).setValue(price);
+      row = row + 1;
+    }
+  }
+}
