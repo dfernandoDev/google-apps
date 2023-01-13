@@ -536,67 +536,104 @@ function InsertOption(form){
   var row = [form.name, form.feedback, form.rating];
 }
 
+function ClearMLReformatedData(){
+  var activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var row = 2;
+
+  do {
+    var opendate = activesheet.getRange("N" + row).getValue();
+    var closedate = activesheet.getRange("O" + row).getValue();
+    activesheet.getRange("N" + row + ":Z" + row).clear();
+    row = row + 1;
+  } while (opendate !== "" && closedate !== "")
+
+}
 
 function ReformatMLExport(){
   var activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var row = activesheet.getActiveCell().getRow();
   var col = activesheet.getActiveCell().getColumn();
 
-  if (col == 1) {
+  ClearMLReformatedData();
+
+  if (col == 2) {
     var orders = new Map();
     do {
-      var action = activesheet.getRange("D" + row).getValue();
+      var date = activesheet.getRange("B" + row).getValue().match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
+      var action = activesheet.getRange("E" + row).getValue();
       var arrAction = action.match(/(Sell|Buy)/i);
       action = arrAction[0];
-      var optioncall = activesheet.getRange("E" + row).getValue();
-      var qty = activesheet.getRange("F" + row).getValue();
-      var price = activesheet.getRange("K" + row).getValue();
+      var optioncall = activesheet.getRange("F" + row).getValue();
+      var qty = activesheet.getRange("G" + row).getValue();
+      var price = activesheet.getRange("L" + row).getValue();
       var arrPrice = price.match(/\d{1,3}.\d{2}/);
 
       if (Array.isArray(arrPrice)) {
         price = arrPrice[0];
+        var princestring = price;
+        if (qty > 1) {
+          princestring = price + " * " + qty;
+        }
         if (orders.has(optioncall)){
 
           if (action == "Buy") {
             orders.get(optioncall).BuyQty = orders.get(optioncall).BuyQty + " + " + qty;
-            orders.get(optioncall).BuyPrice = orders.get(optioncall).BuyPrice + " + " + price;
+            orders.get(optioncall).BuyPrice = orders.get(optioncall).BuyPrice + " + " + princestring;
           }
           if (action == "Sell") {
+            orders.get(optioncall).SellDate = date[0];
             orders.get(optioncall).SellQty = orders.get(optioncall).SellQty + " + " + qty;
-            orders.get(optioncall).SellPrice = orders.get(optioncall).SellPrice + " + " + price;
+            orders.get(optioncall).SellPrice = orders.get(optioncall).SellPrice + " + " + princestring;
           }
         }
         else {
           if (action == "Buy") {
-            orders.set(optioncall,{BuyQty : qty, BuyPrice : price, SellQty : "0", SellPrice : "0"});
+            orders.set(optioncall,{Type : "Buy", Action : optioncall.match(/(CALL|PUT)/i)[0], BuyDate : date[0], BuyQty : qty, BuyPrice : princestring, SellDate: "", SellQty : "0", SellPrice : "0"});
           }
           if (action == "Sell") {
-            orders.set(optioncall,{BuyQty : "0", BuyPrice : "0", SellQty : qty, SellPrice : qty});
+            orders.set(optioncall,{Type : "Sell", Action : optioncall.match(/(CALL|PUT)/i)[0], BuyQty : "0", BuyPrice : "0", SellDate : date[0], SellQty : qty, SellPrice : princestring});
           }
         }
       }
 
       row = row - 1;
-    } while (row > 1)
+    } while (row > 5)
 
     row = 2;
     for ( let [id,order] of orders.entries()){
-      activesheet.getRange("N" + row).setValue(id);
+      activesheet.getRange("N" + row).setValue(order.BuyDate);
+      activesheet.getRange("O" + row).setValue(order.SellDate);
+      activesheet.getRange("Q" + row).setValue(id);
+      activesheet.getRange("S" + row).setValue(order.Action);
+      activesheet.getRange("T" + row).setValue(order.Type);
       var qty = order.BuyQty;
       if (qty.length > 4) {
         qty = qty.replace(/^0\s\+\s/,"")
       }
-      activesheet.getRange("O" + row).setValue("=" + qty);
+      activesheet.getRange("U" + row).setValue("=" + qty);
       var price = order.BuyPrice.replace(/^0\s\+\s/,"");
-      activesheet.getRange("P" + row).setValue(price);
+      activesheet.getRange("V" + row).setValue(price);
       qty = order.SellQty;
       if (qty.length > 4) {
         qty = qty.replace(/^0\s\+\s/,"")
       }
-      activesheet.getRange("Q" + row).setValue("=" + qty);
+      activesheet.getRange("Y" + row).setValue("=" + qty);
       price = order.SellPrice.replace(/^0\s\+\s/,"");
-      activesheet.getRange("R" + row).setValue(price);
+      activesheet.getRange("Z" + row).setValue(price);
       row = row + 1;
     }
   }
+}
+
+function GetNextFridayDate(){
+  var date = new Date("1/7/2023");
+  var day = date.getDay();
+  // Logger.log(day + " " + date.toString());
+  //day = (day == 6) : 0, day;
+  var offset = 5 - date.getDay();
+  date.setDate(date.getDate() + offset);
+  day = date.getDay();
+  
+  Logger.log(day + " " + date.toDateString());
+  // return date.toDateString();
 }
