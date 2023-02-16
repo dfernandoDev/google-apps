@@ -31,9 +31,23 @@ function onOpen() {
   menu.addItem('Update Ticker Summary', 'TickerSummary');
   menu.addItem('Rearrange Data', 'RearrangeData');
   menu.addSeparator();
-  menu.addItem('Reformat ML Export', 'ReformatMLExport');
-  menu.addItem('Reformat RH Export', 'ReformatRHExport');
-    menu.addItem('Reformat WB Export', 'ReformatWBExport');
+  
+  insert = ui.createMenu('ML');
+  insert.addItem('Clear ML Export', 'ClearMLExport');
+  insert.addItem('Reformat ML Order Export', 'ReformatMLOrderExport');
+  insert.addItem('Reformat ML Activity Export', 'ReformatMLActivityExport');
+  menu.addSubMenu(insert);
+  
+  insert = ui.createMenu('RH');
+  insert.addItem('Clear RH Export', 'ClearRHExport');
+  insert.addItem('Reformat RH Export', 'ReformatRHExport');
+  menu.addSubMenu(insert);
+
+  insert = ui.createMenu('WB');
+  insert.addItem('Clear WB Export', 'ClearWBExport');
+  insert.addItem('Reformat WB Export', 'ReformatWBExport');
+  menu.addSubMenu(insert);
+  
   menu.addToUi();
 }
 
@@ -401,7 +415,7 @@ function Convert2OptionSymbol() {
   var row = 0;
   do {
     //var ndx = activeCell.offset(row,0).getValue().indexOf('\n');
-    var option = activeCell.offset(row,0).getValue().replace('\t',' ').replace('\n', ' ').replace("00:00:00 EST","").trim();
+    var option = activeCell.offset(row,0).getValue().replace('\t',' ').replace('\n', ' ').replace("00:00:00 EST","").replace("00:00:00 EDT","").trim();
     //option = option.slice(0,ndx) + " " + option.slice(ndx);
 
     // (\d{4}.\d*.\d{2})|(\d{2}.\d*.\d{4})|(\d{2}[^A-Za-z0-9.]\d{2}|[A-z]{3}\s\d{2},.\d{4})
@@ -411,7 +425,7 @@ function Convert2OptionSymbol() {
     var sdate = date.getFullYear().toString().substring(2) + (date.getMonth()+1).toString().padStart(2,'0') + date.getDate().toString().padStart(2,'0')
     var ldate = [(date.getMonth()+1).toString().padStart(2,'0'), date.getDate().toString().padStart(2,'0'), date.getFullYear()].join('/');
     var ticker = option.match(/([A-Z]{1,}\s)/);
-    var price = option.match(/(\$\d*.\d{2})|(\s\d*.00)/);
+    var price = option.match(/(\$\d*.\d{2})|(\s\d*.[05]0)/);
     var ndx = price[0].indexOf('$');
     if (ndx == -1) {
       price[0] = '$' + price[0].trim();
@@ -478,8 +492,10 @@ function CalculateOptionFees(){
   var sellcol = "O".charCodeAt(0) - "A".charCodeAt(0) + 1
   var numContractsCol = "I".charCodeAt(0) - "A".charCodeAt(0) + 1
   var tradeAmountCol = "J".charCodeAt(0) - "A".charCodeAt(0) + 1
+  var tradeSymbolCol = "D".charCodeAt(0) - "A".charCodeAt(0) + 1
 
   var acc = activesheet.getRange(row, 1).getValue();
+  var tradeSymbol = activesheet.getRange(row, tradeSymbolCol).getValue();
   var numContracts = activesheet.getRange(row, numContractsCol).getValue();
   var tradeAmount = activesheet.getRange(row, tradeAmountCol).getValue() * 100;
   var tradeCount = (activesheet.getActiveCell().offset(0,-1).getFormula().match(/\+/g) || []).length + 1;
@@ -489,9 +505,22 @@ function CalculateOptionFees(){
   var optionsRegulatoryFee = 0;
   var clearingFee = 0;
   var numSales = 0;
+  // webull only
+  var exchangeProprietaryFee = 0;
+  var contractFee = 0;
 
   if (acc === "WB-O" || acc === "WB-Y") {
     // https://www.webull.com/pricing
+
+    if (tradeSymbol == "SPX"){
+      contractFee = 0.55 * numContracts;
+      exchangeProprietaryFee = 0.66 * numContracts;
+      //return (contractFee + exchangeProprietaryFee);
+    }
+    else if (tradeSymbol == "SPXW"){
+      contractFee = 0.55 * numContracts;
+      exchangeProprietaryFee = 0.58 * numContracts;
+    }
 
     if (col == sellcol) {
       regulatoryTransactionFee = 0.0000229 * tradeAmount * tradeCount;
@@ -533,7 +562,7 @@ function CalculateOptionFees(){
       optionsRegulatoryFee = 0.65 * numContracts;
     }
   }
-  return (regulatoryTransactionFee + tradingActivityFee + optionsRegulatoryFee + clearingFee);
+  return (regulatoryTransactionFee + tradingActivityFee + optionsRegulatoryFee + clearingFee + exchangeProprietaryFee + contractFee);
 }
 
 function InsertOption(form){
@@ -548,7 +577,7 @@ function ClearReformatedData(){
     var opendate = activesheet.getRange("N" + row).getValue();
     var closedate = activesheet.getRange("O" + row).getValue();
     row = row + 1;
-  } while (opendate !== "" && closedate !== "")
+  } while (opendate !== "" || closedate !== "")
 
   activesheet.getRange("N2:Z" + row).clear();
 }
@@ -572,6 +601,28 @@ function ReplaceBeginingZero(val){
   return ret;
 }
 
+function BuildOrderMap(orders, optioncall, date, qty, price, action){
+  if (orders.has(optioncall)){
+    if (action == "Buy") {
+      orders.get(optioncall).BuyQty = orders.get(optioncall).BuyQty + " + " + qty;
+      orders.get(optioncall).BuyPrice = orders.get(optioncall).BuyPrice + " + " + price;
+    }
+    if (action == "Sell") {
+      orders.get(optioncall).SellDate = date;
+      orders.get(optioncall).SellQty = orders.get(optioncall).SellQty + " + " + qty;
+      orders.get(optioncall).SellPrice = orders.get(optioncall).SellPrice + " + " + price;
+    }
+  }
+  else {
+    if (action == "Buy") {
+      orders.set(optioncall,{Type : "Buy", Action : optioncall.match(/(CALL|PUT)/i)[0], BuyDate : date, BuyQty : qty, BuyPrice : price, SellDate: "", SellQty : "0", SellPrice : "0"});
+    }
+    if (action == "Sell") {
+      orders.set(optioncall,{Type : "Sell", Action : optioncall.match(/(CALL|PUT)/i)[0], BuyQty : "0", BuyPrice : "0", SellDate : date, SellQty : qty, SellPrice : price});
+    }
+  }
+}
+
 function PopulateFormatedData(orders) {
   let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   let row = 2;
@@ -593,7 +644,7 @@ function PopulateFormatedData(orders) {
   }
 }
 
-function ReformatMLExport(){
+function ReformatMLOrderExport(){
   var activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var col = 2; //activesheet.getActiveCell().getColumn();
   //var row = activesheet.getActiveCell().getRow();
@@ -645,6 +696,43 @@ function ReformatMLExport(){
   PopulateFormatedData(orders);
 }
 
+function ReformatMLActivityExport(){
+  let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  let col = 1;
+  let firstDataRow = 9;
+  let row = GetOrderLastRow(firstDataRow ,col);
+
+  let orders = new Map();
+  do {
+    let price = activesheet.getRange("H" + row).getValue();
+    let date = activesheet.getRange("A" + row).getValue();//.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
+    let action = activesheet.getRange("D" + row).getValue();
+    let arrAction = action.match(/(Sale|Purchase)/i);
+    if (Array.isArray(arrAction)) {
+      action = arrAction[0];
+    }
+    else {
+      arrAction = action.match(/(Expired)/i);
+      if (Array.isArray(arrAction)) {
+        arrAction = "Sale"
+        price = 0;
+      }
+    }
+    action = action.replace("Purchase","Buy");
+    action = action.replace("Sale","Sell");
+    let optioncall = activesheet.getRange("D" + row).getValue();
+    let arrOptionCall = optioncall.match(/(Call|Put).\w+.\d{5}|Exp.\d{2}-\d{2}-\d{2}/gi);
+    let arrTypeSymbol = arrOptionCall[0].split(' ')
+    optioncall = arrTypeSymbol[1] + arrOptionCall[1].replace("EXP ", " ").replaceAll("-","/") + " " + arrTypeSymbol[0] + " $" + (arrTypeSymbol[2]*100/100);
+    let qty = activesheet.getRange("G" + row).getValue();
+    
+    BuildOrderMap(orders, optioncall, date, qty, price, action);
+    row = row - 1;
+  } while (row > firstDataRow-1)
+  ClearReformatedData();
+  PopulateFormatedData(orders);
+}
+
 function ReformatRHExport(){
   var activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var col = 1; //activesheet.getActiveCell().getColumn();
@@ -672,7 +760,10 @@ function ReformatRHExport(){
       var action = option.match(/(Sell|Buy)/i)[0];
       var qty = contract.match(/\d{1,2} /)[0].trim(); 
       var price = contract.match(/[$]\d{1,2}.\d{2}/g)[0].replace('$','');
-      var optioncall = option.match(/^\w+/)[0] + ' ' + option.match(/\d{1,2}\/\d{1,2}/)[0] + '/2023 ' + option.match(/Call|Put/i)[0] + ' ' + option.match(/[$]\d{1,4}/)[0] + '.00'
+      var arrStrikePrice = option.match(/[$]\d{1,4}[.]\d|[$]\d{1,4}/);
+      //let strikePrice = arrStrikePrice[0].replace('$','');
+
+      var optioncall = option.match(/^\w+/)[0] + ' ' + option.match(/\d{1,2}\/\d{1,2}/)[0] + '/2023 ' + option.match(/Call|Put/i)[0] + ' $' + Number(arrStrikePrice[0].replace('$','')).toFixed(2);
 
       var princestring = price;
       if (qty > 1) {
@@ -770,4 +861,30 @@ function GetNextFridayDate(){
   
   Logger.log(day + " " + date.toDateString());
   // return date.toDateString();
+}
+
+function ClearWBExport(){
+  ClearImportedData(1,"A")
+  ClearReformatedData();
+}
+
+function ClearRHExport(){
+  ClearImportedData(1,"A")
+  ClearReformatedData();
+}
+
+function ClearMLExport(){
+  ClearImportedData(5,"B")
+  ClearReformatedData();
+}
+
+function ClearImportedData(row, col){
+  let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  do {
+    row = row + 1;
+    var val1 = activesheet.getRange(col + row).getValue();
+    var val2 = activesheet.getRange(col + (row + 1)).getValue();
+  } while (val1 != "" || val2 != "")
+
+  activesheet.getRange("A1:M" + row).clear();
 }
