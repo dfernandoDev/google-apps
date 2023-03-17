@@ -425,7 +425,8 @@ function Convert2OptionSymbol() {
     var sdate = date.getFullYear().toString().substring(2) + (date.getMonth()+1).toString().padStart(2,'0') + date.getDate().toString().padStart(2,'0')
     var ldate = [(date.getMonth()+1).toString().padStart(2,'0'), date.getDate().toString().padStart(2,'0'), date.getFullYear()].join('/');
     var ticker = option.match(/([A-Z]{1,}\s)/);
-    var price = option.match(/(\$\d*.\d{2})|(\s\d*.[05]0)/);
+    var price = option.match(/(\$\d*.\d{2})|(\s\d[^\S]*.\d*.[05]0)/);
+    price[0]=price[0].replace(',','');
     var ndx = price[0].indexOf('$');
     if (ndx == -1) {
       price[0] = '$' + price[0].trim();
@@ -562,6 +563,7 @@ function CalculateOptionFees(){
       optionsRegulatoryFee = 0.65 * numContracts;
     }
   }
+  //Logger.log (regulatoryTransactionFee + tradingActivityFee + optionsRegulatoryFee + clearingFee + exchangeProprietaryFee + contractFee);
   return (regulatoryTransactionFee + tradingActivityFee + optionsRegulatoryFee + clearingFee + exchangeProprietaryFee + contractFee);
 }
 
