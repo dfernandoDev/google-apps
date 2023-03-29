@@ -100,13 +100,15 @@ function MergePayments(){
   }
 }
 
+// copy to open area and move the mouse to the first item in the list
 function FormatPayments(){
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var rf = sheet.getActiveCell().getRow();
-  var rt = 2;
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  let rf = sheet.getActiveCell().getRow(); // source first row
+  let cf = sheet.getActiveCell().getColumn(); // source first column
+  let rt = 2;
   var c = 0;
 
-  while(!sheet.getRange("A" + rf).isBlank()){
+  while(!sheet.getRange(rf,cf).isBlank()){
     if (c > 6) {
       c=1;
       rt = rt + 1;
@@ -114,8 +116,12 @@ function FormatPayments(){
     else {
       c = c + 1;
     }
-    var val = sheet.getRange("A" + rf).getValue().toString();
-    if ( c == 5) {
+    var val = sheet.getRange(rf,cf).getValue().toString();
+    if ( c == 2) {
+      let date = new Date(val.trim());
+      val = date.toLocaleDateString("en-US",{month: '2-digit', day: '2-digit', year: 'numeric'})
+    }
+    else if ( c == 5) {
       if (val.length > 5) {
         var invoiceids = val.toString().match(/\d{6}/g);
         val = invoiceids.join(" ");
