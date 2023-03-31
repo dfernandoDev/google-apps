@@ -1,20 +1,20 @@
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
-      .addItem('Reconcile', 'Reconcile')
       .addItem('Merge Payments', 'MergePayments')
+      .addItem('Reconcile', 'Reconcile')
       .addSeparator()
       .addItem('Format Payments', 'FormatPayments')
       .addToUi();
 }
 
 function buildInvoicePaymentMap(sheet) {
-  var r = 2;
-  var invoices = new Map();
+  let r = 2;
+  let invoices = new Map();
 
   while(!sheet.getRange("A" + r).isBlank()){
-    var invoiceid = sheet.getRange("B" + r).getValue();
-    var type = sheet.getRange("D" + r).getValue();
+    let invoiceid = sheet.getRange("B" + r).getValue();
+    let type = sheet.getRange("D" + r).getValue();
 
     if (invoices.has (invoiceid)) {
       if (type == "Sale") {
@@ -31,29 +31,37 @@ function buildInvoicePaymentMap(sheet) {
       invoices.set(invoiceid, {hasPayment : "Payment" == type, hasInvoice : "Sale" == type, saleID : r, paymentID : r});
     }
     
-    r =r + 1;
+    r = r + 1;
   }
   return invoices;
 }
 
 function buildPaymentMap(sheet){
-  var r = 2;
-  var payments = new Map();
+  let r = 2;
+  let payments = new Map();
   while(!sheet.getRange("A" + r).isBlank()){
-    var invoiceids = sheet.getRange("E" + r).getValue();
-    var hasMulti = invoiceids.toString().indexOf(" ");
-    var payment = {
+    let invoiceids = sheet.getRange("E" + r).getValue();
+    let hasMulti = invoiceids.toString().indexOf(" ");
+    let payment = {
         No : sheet.getRange("A" + r).getValue(),
         Date : sheet.getRange("B" + r).getValue(),
         Amount : sheet.getRange("C" + r).getValue(),
         Method : sheet.getRange("D" + r).getValue(),
+        AMS : sheet.getRange("E" + r).getValue(),
         EDIPayer : sheet.getRange("F" + r).getValue(),
         Payer : sheet.getRange("G" + r).getValue(),
+        RowID : r,
       }
     if (hasMulti>0){
       const ids = invoiceids.split(" ");
       for ( id in ids){
-        payments.set(ids[id],payment);
+        if (payments.has(id)){
+          SpreadsheetApp.getUi().alert("Duplicate payments for invoice id: " + ids[id]);
+          Logger.log(id);
+        }
+        else {
+          payments.set(ids[id],payment);
+        }
       }
     }
     else {
@@ -62,6 +70,42 @@ function buildPaymentMap(sheet){
     r =r + 1;
   }
   return payments;
+}
+
+function MergePayments(){
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheetACaccounting = ss.getSheets()[0];
+  let sheetPayments = ss.getSheets()[1];
+  
+  // build the map
+  let invoicespayments= buildInvoicePaymentMap(sheetACaccounting);
+  let payments = buildPaymentMap(sheetPayments);
+
+  for ( let [id,payment] of payments.entries()){
+    if (invoicespayments.has(parseInt(id))) {
+      var invoice = invoicespayments.get(parseInt(id));
+      // write the corresponding payment information next to sale
+      sheetACaccounting.getRange("D" + invoice.saleID).setBackgroundRGB(40,160,20);
+      sheetACaccounting.getRange("J" + invoice.saleID).setValue(payment.No);
+      sheetACaccounting.getRange("K" + invoice.saleID).setValue(payment.Date);
+      sheetACaccounting.getRange("L" + invoice.saleID).setValue(payment.Amount);
+      sheetACaccounting.getRange("M" + invoice.saleID).setValue(payment.Method);
+      sheetACaccounting.getRange("N" + invoice.saleID).setValue(payment.AMS);
+      sheetACaccounting.getRange("O" + invoice.saleID).setValue(payment.EDIPayer);
+      sheetACaccounting.getRange("P" + invoice.saleID).setValue(payment.Payer);
+      // write the corresponding payment information next to payment
+      sheetACaccounting.getRange("J" + invoice.paymentID).setValue(payment.No);
+      sheetACaccounting.getRange("K" + invoice.paymentID).setValue(payment.Date);
+      sheetACaccounting.getRange("L" + invoice.paymentID).setValue(payment.Amount);
+      sheetACaccounting.getRange("M" + invoice.paymentID).setValue(payment.Method);
+      sheetACaccounting.getRange("N" + invoice.paymentID).setValue(payment.AMS);
+      sheetACaccounting.getRange("O" + invoice.paymentID).setValue(payment.EDIPayer);
+      sheetACaccounting.getRange("P" + invoice.paymentID).setValue(payment.Payer);
+    }
+    else if (payment.AMS.toString().indexOf(id) == -1) {
+      sheetPayments.getRange("A" + payment.RowID).setBackgroundRGB(245,155,155);
+    }
+  }
 }
 
 function Reconcile() {
@@ -76,29 +120,6 @@ function Reconcile() {
   }
 }
 
-function MergePayments(){
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetDetails = ss.getSheets()[0];
-  var sheetPayments = ss.getSheets()[1];
-  
-  // build the map
-  var invoices= buildInvoicePaymentMap(sheetDetails);
-  var payments = buildPaymentMap(sheetPayments);
-
-  for ( let [id,payment] of payments.entries()){
-    if (invoices.has(parseInt(id))) {
-      var invoice = invoices.get(parseInt(id));
-      sheetDetails.getRange("D" + invoice.saleID).setBackgroundRGB(40,160,20);
-      sheetDetails.getRange("J" + invoice.paymentID).setValue(payment.No);
-      sheetDetails.getRange("K" + invoice.paymentID).setValue(payment.Date);
-      sheetDetails.getRange("L" + invoice.paymentID).setValue(payment.Amount);
-      sheetDetails.getRange("M" + invoice.paymentID).setValue(payment.Method);
-      sheetDetails.getRange("N" + invoice.paymentID).setValue(id);
-      sheetDetails.getRange("O" + invoice.paymentID).setValue(payment.EDIPayer);
-      sheetDetails.getRange("P" + invoice.paymentID).setValue(payment.Payer);
-    }
-  }
-}
 
 // copy to open area and move the mouse to the first item in the list
 function FormatPayments(){
