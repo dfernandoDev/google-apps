@@ -470,6 +470,7 @@ function UpdateFormula() {
   var activeRange = activesheet.getActiveRange();
   var rows = activeRange.getNumRows();
   var row = activesheet.getActiveCell().getRow();
+  var col = activesheet.getActiveCell().getColumn();
   var activeCell = activesheet.getSelection().getCurrentCell();
   var offset = 0;
   
@@ -482,10 +483,36 @@ function UpdateFormula() {
     if (formula =="" && (plus >= 0 || multi >=0)) {
       formula = "=(" + activeCell.offset(offset,0).getValue() + ")/I" + (row + offset);
       activeCell.offset(offset,0).setFormula(formula);
-      activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn()).setNumberFormat("$0.00");
+      // activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn()).setNumberFormat("$0.00");
     }
+    // price
+    activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn()).setNumberFormat("$0.00");
+    // fees
+    activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 1).setFormula("=calculateOptionFees()");
+    activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 1).setNumberFormat("$0.00");
+    // totals
+    let curRow = row + offset;
+    if (col == 10) {
+      // expired?
+      activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).setValue("N");
+      activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).setHorizontalAlignment('center');
+      
+      formula = "=J" + curRow + "*I" + curRow + "*100+if(H" + curRow + "=\"Sell\",-K" + curRow + ",+K" + curRow + ")";
+    }
+    else if (col == 14) {
+      let cpyRange = activesheet.getRange("Q2:R2");
+      let pasteRange = activesheet.getRange("Q" + curRow + ":R" + curRow);
+      cpyRange.copyTo(pasteRange);
+
+      formula = "=if(M" + curRow + "=\"Y\",0,N" + curRow + "*I" + curRow + "*100+if(H" + curRow + "=\"Sell\",O" + curRow + ",-O" + curRow + "))";
+      //activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 6).setFormula(formula);
+    }
+
+    activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 2).setFormula(formula);
+
     offset++;
   } while (offset < rows )
+  // SpreadsheetApp.flush();
 }
 
 function CalculateOptionFees(){
@@ -853,8 +880,13 @@ function ReformatWBExport(){
     row = row - 1;
   } while (row > 1)
 
+  let account = activesheet.getRange("M2").getValue();
+  if (account.toString().length == 0) {
+    account = "WB";
+  }
+
   ClearReformatedData();
-  PopulateFormatedData(orders, "WB");
+  PopulateFormatedData(orders, account);
 }
 
 function GetNextFridayDate(){

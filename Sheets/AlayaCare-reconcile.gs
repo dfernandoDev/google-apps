@@ -1,7 +1,8 @@
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
-      .addItem('Merge Payments', 'MergePayments')
+      .addItem('Merge Payments Bette', 'MergePaymentsBette')
+      .addItem('Merge Payments Sandra', 'MergePaymentsSandra')
       .addItem('Reconcile', 'Reconcile')
       .addSeparator()
       .addItem('Format Payments', 'FormatPayments')
@@ -72,11 +73,18 @@ function buildPaymentMap(sheet){
   return payments;
 }
 
-function MergePayments(){
-  let ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheetACaccounting = ss.getSheets()[0];
-  let sheetPayments = ss.getSheets()[1];
-  
+function MergePaymentsBette(){
+  let sheetACaccounting = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("AC Accounting-Bette"); // ss.getSheets()[0];
+  MergePayments(sheetACaccounting);
+}
+
+function MergePaymentsSandra(){
+  let sheetACaccounting = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("AC Accounting-Sandra"); // ss.getSheets()[0];
+  MergePayments(sheetACaccounting);
+}
+
+function MergePayments(sheetACaccounting){
+  let sheetPayments = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("VA Payments"); // ss.getSheets()[1];
   // build the map
   let invoicespayments= buildInvoicePaymentMap(sheetACaccounting);
   let payments = buildPaymentMap(sheetPayments);
@@ -144,8 +152,9 @@ function FormatPayments(){
     }
     else if ( c == 5) {
       if (val.length > 5) {
-        var invoiceids = val.toString().match(/\d{6}/g);
-        val = invoiceids.join(" ");
+        var invoiceids = val.toString().match(/\d{6}|\d{3},\d{3}-\d/g);
+        
+        val = invoiceids.join(" ").replace(",","");
       }
     }
     sheet.getRange(rt,c).setValue(val);
