@@ -501,7 +501,37 @@ function UpdateFormula() {
     let curRow = row + offset;
     if (col == 10) {
       // expired?
-      activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).setValue("N");
+      let expiredval = activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).getValue();
+      let expired = false;
+
+      // check if today's date is past the exp. date
+        let optioncall = activesheet.getRange(activeCell.getRow() + offset , 5).getValue();
+        let expdate = new Date(optioncall.match(/\d{2}\/\d{2}\/\d{4}/)[0]);
+        let today = new Date(Date.now());
+        // diff is + means exp date has passed
+        let datediff = parseInt((today - expdate) / (1000 * 60 * 60 * 24), 10);
+
+      // if value is not a number
+      if (isNaN(expiredval)){
+        if (expiredval == "Y"){
+          expired = true;
+        }
+        else {
+        }
+      }
+      // exp column has a number
+      else {
+        let buyqty = activesheet.getRange(activeCell.getRow() + offset , 9).getValue();
+        let sellqty = activesheet.getRange(activeCell.getRow() + offset , 13).getValue();
+
+        if (buyqty != sellqty && datediff > 0){
+          expired = true;
+        }
+      }
+      activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).setValue(expired == true ? 'Y' : 'N');
+      if (expired){
+        activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() - 7).setValue(expdate);
+      }
       activesheet.getRange(activeCell.getRow() + offset , activeCell.getColumn() + 3).setHorizontalAlignment('center');
       
       formula = "=J" + curRow + "*I" + curRow + "*100+if(H" + curRow + "=\"Sell\",-K" + curRow + ",+K" + curRow + ")";
@@ -802,26 +832,34 @@ function ReformatMLActivityExport(){
     let price = activesheet.getRange("H" + row).getValue();
     let date = activesheet.getRange("A" + row).getValue();//.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
     let action = activesheet.getRange("D" + row).getValue();
-    let arrAction = action.match(/(Sale|Purchase)/i);
-    if (Array.isArray(arrAction)) {
-      action = arrAction[0];
-    }
-    else {
-      arrAction = action.match(/(Expired)/i);
+    let arrAction = action.match(/Option/i);
+    // if this is a option record
+    if (Array.isArray(arrAction)){
+      arrAction = action.match(/(Sale|Purchase)/i);
       if (Array.isArray(arrAction)) {
-        arrAction = "Sale"
-        price = 0;
+        action = arrAction[0];
       }
+      else {
+        arrAction = action.match(/(Expired)/i);
+        if (Array.isArray(arrAction)) {
+          arrAction = "Sale"
+          price = 0;
+        }
+      }
+      action = action.replace("Purchase","Buy");
+      action = action.replace("Sale","Sell");
+      let optioncall = activesheet.getRange("D" + row).getValue();
+      let arrOptionCall = optioncall.match(/(Call|Put).\w+.\d{5}|Exp.\d{2}-\d{2}-\d{2}/gi);
+      let arrTypeSymbol = arrOptionCall[0].split(' ')
+      optioncall = arrTypeSymbol[1] + arrOptionCall[1].replace("EXP ", " ").replaceAll("-","/") + " " + arrTypeSymbol[0] + " $" + (arrTypeSymbol[2]*100/100);
+      let qty = activesheet.getRange("G" + row).getValue();
+
+      if (action === "Sell" && qty < 0){
+        qty = Math.abs(qty);
+      }
+      
+      BuildOrderMap(orders, orderIDs, optioncall, "", date, qty, price, action);
     }
-    action = action.replace("Purchase","Buy");
-    action = action.replace("Sale","Sell");
-    let optioncall = activesheet.getRange("D" + row).getValue();
-    let arrOptionCall = optioncall.match(/(Call|Put).\w+.\d{5}|Exp.\d{2}-\d{2}-\d{2}/gi);
-    let arrTypeSymbol = arrOptionCall[0].split(' ')
-    optioncall = arrTypeSymbol[1] + arrOptionCall[1].replace("EXP ", " ").replaceAll("-","/") + " " + arrTypeSymbol[0] + " $" + (arrTypeSymbol[2]*100/100);
-    let qty = activesheet.getRange("G" + row).getValue();
-    
-    BuildOrderMap(orders, orderIDs, optioncall, "", date, qty, price, action);
     row = row - 1;
   } while (row > firstDataRow-1)
   ClearReformatedData();
@@ -1058,7 +1096,8 @@ function ClearImportedData(row, col){
     row = row + 1;
     var val1 = activesheet.getRange(col + row).getValue();
     var val2 = activesheet.getRange(col + (row + 1)).getValue();
-  } while (val1 != "" || val2 != "")
+    var val3 = activesheet.getRange(col + (row + 2)).getValue();
+  } while (val1 != "" || val2 != "" || val3 != "")
 
   activesheet.getRange("A1:M" + row).clear();
 }
