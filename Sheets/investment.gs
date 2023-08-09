@@ -30,7 +30,10 @@ function onOpen() {
   menu.addItem('Update Formula', 'UpdateFormula');
   menu.addItem('Update Ticker Summary', 'TickerSummary');
   menu.addItem('Rearrange Data', 'RearrangeData');
+  menu.addItem('Find Matching Record', 'FindMatchingRecord');
+  menu.addItem('Update Matching Record', 'UpdateMatchingRecord');
   menu.addSeparator();
+  
   menu.addItem('Clear Formated Data', 'ClearReformatedData');
 
   insert = ui.createMenu('ML');
@@ -432,7 +435,7 @@ function Convert2OptionSymbol() {
     var sdate = date.getFullYear().toString().substring(2) + (date.getMonth()+1).toString().padStart(2,'0') + date.getDate().toString().padStart(2,'0')
     var ldate = [(date.getMonth()+1).toString().padStart(2,'0'), date.getDate().toString().padStart(2,'0'), date.getFullYear()].join('/');
     var ticker = option.match(/([A-Z]{1,}\s)/);
-    var price = option.match(/(\$\d*.\d{2})|(\s\d[^\S]*.\d*.[05]0)/);
+    var price = option.match(/(\$\d*[.\d{2}])|(\s\d[^\S]*.\d*.[05]0)/);
     price[0]=price[0].replace(',','');
     var ndx = price[0].indexOf('$');
     if (ndx == -1) {
@@ -686,7 +689,7 @@ function ReplaceBeginingZero(val){
   return ret;
 }
 
-function AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, action) {
+function AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, action, expired) {
   let princestring = price;
   if (qty > 1) {
     princestring = price + " * " + qty;
@@ -704,7 +707,8 @@ function AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, act
         SellDate: "", 
         SellQty : "0", 
         SellQtyInt : 0, 
-        SellPrice : "0"
+        SellPrice : "0",
+        Expired : expired
       }
     );
   }
@@ -720,13 +724,14 @@ function AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, act
         SellDate : date, 
         SellQty : qty, 
         SellQtyInt : qty, 
-        SellPrice : princestring
+        SellPrice : princestring,
+        Expired : expired
       }
     );
   }
 }
 
-function AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action) {
+function AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action, expired) {
   let key = optioncall;
   
   let princestring = price;
@@ -740,7 +745,7 @@ function AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, pri
     if (orderIDs.has(optioncall)) {
       orderIDs.set(optioncall,{ Count : orderIDs.get(optioncall).Count + 1});
       key = optioncall + "#" + orderIDs.get(optioncall).Count;
-      AddNewOrderItem(orders, key, optionsymbol, date, qty, price, action);
+      AddNewOrderItem(orders, key, optionsymbol, date, qty, price, action, expired);
     }
   }
   else if (action == "Buy") {
@@ -753,16 +758,17 @@ function AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, pri
     orders.get(key).SellQty = orders.get(key).SellQty + " + " + qty;
     orders.get(key).SellQtyInt = orders.get(key).SellQtyInt + qty;
     orders.get(key).SellPrice = orders.get(key).SellPrice + " + " + princestring;
+    orders.get(key).Expired = expired;
   }  
 }
 
-function BuildOrderMap(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action){
+function BuildOrderMap(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action, expired = 'N'){
   if (orders.has(optioncall)){
-    AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action);
+    AddOrderItem(orders, orderIDs, optioncall, optionsymbol, date, qty, price, action, expired);
   }
   else {
     orderIDs.set(optioncall,{ Count : 1});
-    AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, action);
+    AddNewOrderItem(orders, optioncall, optionsymbol, date, qty, price, action, expired);
   }
 }
 
@@ -782,7 +788,13 @@ function PopulateFormatedData(orders, account, row = 2) {
     let price = ReplaceBeginingZero(order.BuyPrice);
     activesheet.getRange("V" + row).setValue(price);
     qty = ReplaceBeginingZero(order.SellQty);
-    activesheet.getRange("Y" + row).setValue("=" + qty);
+    if (order.Expired == 'Y') {
+      activesheet.getRange("Y" + row).setValue(order.Expired);
+    }
+    else {
+      activesheet.getRange("Y" + row).setValue("=" + qty);
+    }
+  
     price = ReplaceBeginingZero(order.SellPrice);
     activesheet.getRange("Z" + row).setValue(price);
     row = row + 1;
@@ -823,32 +835,36 @@ function ReformatMLOrderExport(){
 function ReformatMLActivityExport(){
   let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   let col = 1;
-  let firstDataRow = 9;
+  let firstDataRow = 8;
   let row = GetOrderLastRow(firstDataRow ,col);
 
   let orders = new Map();
   var orderIDs = new Map();
   do {
+    let expired = 'N';
     let price = activesheet.getRange("H" + row).getValue();
     let date = activesheet.getRange("A" + row).getValue();//.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
-    let action = activesheet.getRange("D" + row).getValue();
-    let arrAction = action.match(/Option/i);
+    //let action = activesheet.getRange("C" + row).getValue();
+    let action = "";
+    let optioncall = activesheet.getRange("D" + row).getValue();
+    //let arrAction = optioncall.match(/Option/i);
+    let arrAction = optioncall.match(/Call|Put/i);
     // if this is a option record
     if (Array.isArray(arrAction)){
-      arrAction = action.match(/(Sale|Purchase)/i);
+      arrAction = optioncall.match(/(Sale|Sell|Purchase|Buy|Expired)/i);
+      action = arrAction[0];
+      arrAction = optioncall.match(/(Expired)/i);
+
       if (Array.isArray(arrAction)) {
-        action = arrAction[0];
+        action = "Sale"
+        price = 0;
+        expired = 'Y';
+        date = optioncall.match(/Exp.\d{2}-\d{2}-\d{2}/gi)[0].replace("EXP ", "").replaceAll("-","/");
       }
-      else {
-        arrAction = action.match(/(Expired)/i);
-        if (Array.isArray(arrAction)) {
-          arrAction = "Sale"
-          price = 0;
-        }
-      }
+
       action = action.replace("Purchase","Buy");
       action = action.replace("Sale","Sell");
-      let optioncall = activesheet.getRange("D" + row).getValue();
+      //let optioncall = activesheet.getRange("D" + row).getValue();
       let arrOptionCall = optioncall.match(/(Call|Put).\w+.\d{5}|Exp.\d{2}-\d{2}-\d{2}/gi);
       let arrTypeSymbol = arrOptionCall[0].split(' ')
       optioncall = arrTypeSymbol[1] + arrOptionCall[1].replace("EXP ", " ").replaceAll("-","/") + " " + arrTypeSymbol[0] + " $" + (arrTypeSymbol[2]*100/100);
@@ -857,8 +873,7 @@ function ReformatMLActivityExport(){
       if (action === "Sell" && qty < 0){
         qty = Math.abs(qty);
       }
-      
-      BuildOrderMap(orders, orderIDs, optioncall, "", date, qty, price, action);
+      BuildOrderMap(orders, orderIDs, optioncall, "", date, qty, price, action, expired);
     }
     row = row - 1;
   } while (row > firstDataRow-1)
@@ -1100,4 +1115,130 @@ function ClearImportedData(row, col){
   } while (val1 != "" || val2 != "" || val3 != "")
 
   activesheet.getRange("A1:M" + row).clear();
+}
+
+function FindMatchingRecord() {
+  let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  let activeCell = activesheet.getSelection().getCurrentCell();
+  let activeRange = activesheet.getActiveRange();
+
+  let selRow = activeCell.getRow();
+  let option = activeCell.getValue();
+  let account = activesheet.getRange("A" + selRow).getValue();
+  let buyDate = new Date(activesheet.getRange("B" + selRow).getValue());
+  let buyQty = activesheet.getRange("I" + selRow).getValue();
+  let buyPrice = activesheet.getRange("J" + selRow).getValue();
+  let sellDate = new Date(activesheet.getRange("C" + selRow).getValue());
+  let sellPrice = activesheet.getRange("N" + selRow).getValue();
+  //Find cells that contain text
+  let ranges = SpreadsheetApp.getActive()
+    .createTextFinder(option)
+    .matchEntireCell(true)
+    .matchCase(true)
+    .matchFormulaText(false)
+    .ignoreDiacritics(true)
+    .findAll();
+
+  let matchingCells = "";
+  let matchCount = 0;
+
+  ranges.forEach(function(range) {
+    if (range.getRow() != selRow) {
+      let mAccount = activesheet.getRange("A" + range.getRow()).getValue();
+      let mBuyDate = new Date(activesheet.getRange("B" + range.getRow()).getValue());
+
+      if (account == mAccount) {
+        if (buyDate.getDate() == mBuyDate.getDate()) {
+            matchCount = matchCount + 1;
+            matchingCells = matchingCells + ", " + range.getA1Notation();
+            let mBuyQty = activesheet.getRange("I" + range.getRow()).getValue();
+            let mBuyPrice = activesheet.getRange("J" + range.getRow()).getFormula();
+            let mSellPrice = activesheet.getRange("N" + range.getRow()).getFormula();
+            let mSellDate = new Date(activesheet.getRange("C" + range.getRow()).getValue());
+
+            if (mBuyPrice == "") {
+              mBuyPrice = activesheet.getRange("J" + range.getRow()).getValue();
+            } else {
+              mBuyPrice = mBuyPrice.replace("=(", "");
+              mBuyPrice = mBuyPrice.substring(0, mBuyPrice.indexOf(")"))
+            }
+
+            if (mSellPrice == "") {
+              mSellPrice = activesheet.getRange("N" + range.getRow()).getValue();
+            } else {
+              mSellPrice = mSellPrice.replace("=(", "");
+              mSellPrice = mSellPrice.substring(0, mSellPrice.indexOf(")"));
+            }
+
+            if (buyQty != mBuyQty) {
+              matchingCells = matchingCells + "(Qty " + buyQty + "<>" + mBuyQty + ")";
+            }
+            if (buyPrice != mBuyPrice) {
+              matchingCells = matchingCells + "(Buy price " + buyPrice + "<>" + mBuyPrice + ")";
+            }
+            if (sellDate.getDate() != mSellDate.getDate()) {
+              matchingCells = matchingCells + "(Sell date " + sellDate.getDate() + "<>" + mSellDate.getDate() + ")";
+            }
+            if (sellPrice != mSellPrice) {
+              matchingCells = matchingCells + "(Sell Price " + sellPrice + "<>" + mSellPrice + ")";
+            }
+          }
+          else {
+              matchingCells = matchingCells + "(Buy Date " + buyDate.getDate() + "<>" + mBuyDate.getDate() + ")";
+
+          }
+        }
+      }
+    });
+
+    if (ranges.length == 1 || matchCount == 0) {
+      activesheet.getRange("S" + selRow).setValue("No Match");
+    } else {
+      activesheet.getRange("S" + selRow).setValue(matchingCells.replace(", ", ""));
+    }
+  }
+
+
+function UpdateMatchingRecord() {
+  let activesheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  let activeCell = activesheet.getSelection().getCurrentCell();
+
+  let selRow = activeCell.getRow();
+  let option = activeCell.getValue();
+  let account = activesheet.getRange("A" + selRow).getValue();
+  let buyDate = new Date(activesheet.getRange("B" + selRow).getValue());
+  let buyQty = activesheet.getRange("I" + selRow).getValue();
+  let buyPrice = activesheet.getRange("J" + selRow).getValue();
+  let sellDate = new Date(activesheet.getRange("C" + selRow).getValue());
+  let sellPrice = activesheet.getRange("N" + selRow).getValue();
+  //Find cells that contain text
+  let ranges = SpreadsheetApp.getActive()
+   .createTextFinder(option)
+   .matchEntireCell(true)
+   .matchCase(true)
+   .matchFormulaText(false)
+   .ignoreDiacritics(true)
+   .findAll();
+
+let matchingCells = "";
+let matchCount = 0;
+ranges.forEach(function (range) {
+    if (range.getRow() != selRow) {
+      let mAccount = activesheet.getRange("A" + range.getRow()).getValue();
+      let mBuyDate = new Date(activesheet.getRange("B" + range.getRow()).getValue());
+      if (account == mAccount && buyDate.getDate() == mBuyDate.getDate()) {
+        matchCount = matchCount + 1;
+        matchingCells = matchingCells + ", " + range.getA1Notation();
+        // BuyQty
+        activesheet.getRange("I" + range.getRow()).setValue(buyQty);
+        // BuyPrice
+        activesheet.getRange("J" + range.getRow()).setValue(buyPrice);
+
+        // SellDate = new Date(activesheet.getRange("C" + range.getRow()).getValue());
+        activesheet.getRange("C" + range.getRow()).setValue(sellDate.getDate());
+        // SellPrice
+        activesheet.getRange("N" + range.getRow()).setValue(sellPrice);
+      }
+    }
+  });
 }
