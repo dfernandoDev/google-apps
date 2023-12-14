@@ -1,13 +1,20 @@
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
-      .addItem('Convert to OnPay', 'Convert2OnPay')
+      .addItem('Kantime to OnPay', 'Kantime2OnPay')
+      .addItem('Clear OnPay Table', 'CleanOnPaySheet')
       .addToUi();
 }
 
-function Convert2OnPay() {
+function Kantime2OnPay() {
+  CleanOnPaySheet();
+  let employees = ReadKantimeHours();
+  Save2OnPay (employees);
+}
+
+function ReadKantimeHours(){
   let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
-  let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
+
   let employees = new Map();
   let r = 2;
   while(!sheetKantime.getRange("A" + r).isBlank()){
@@ -53,4 +60,33 @@ function Convert2OnPay() {
     // console.log (hrs);
     r++;
   }
+
+  return employees;
+}
+
+function CleanOnPaySheet(){
+    let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
+    let r = sheetOnPay.getLastRow();
+
+    if (r > 1) {
+      sheetOnPay.getRange("A2:H" + r).clearContent();
+    }
+}
+
+function Save2OnPay(employees){
+    let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
+    let r = 2;
+
+    for (const cg of employees.entries()){
+      sheetOnPay.getRange("A" + r).setValue(1);
+      if (cg[1].Mileage > 0) {
+        sheetOnPay.getRange("B" + r).setValue(107);
+        sheetOnPay.getRange("C" + r).setValue(cg[1].ID);
+        sheetOnPay.getRange("F" + r).setValue(1);
+        sheetOnPay.getRange("G" + r).setValue(cg[1].Mileage);
+        sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
+      }
+
+      r++;
+    }
 }
