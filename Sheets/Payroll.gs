@@ -78,15 +78,25 @@ function Save2OnPay(employees){
     let r = 2;
 
     for (const cg of employees.entries()){
-      sheetOnPay.getRange("A" + r).setValue(1);
+      for (let attr in cg[1]) {
+        if (!isNaN(parseInt(attr))) {
+          sheetOnPay.getRange("A" + r).setValue(1);
+          sheetOnPay.getRange("B" + r).setValue(1);
+          sheetOnPay.getRange("C" + r).setValue(cg[1].ID);
+          sheetOnPay.getRange("D" + r).setValue(cg[1][attr].Hours);
+          sheetOnPay.getRange("E" + r).setValue(attr);
+          sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
+          r++;
+        }
+      }
       if (cg[1].Mileage > 0) {
+        sheetOnPay.getRange("A" + r).setValue(1);
         sheetOnPay.getRange("B" + r).setValue(107);
         sheetOnPay.getRange("C" + r).setValue(cg[1].ID);
         sheetOnPay.getRange("F" + r).setValue(1);
         sheetOnPay.getRange("G" + r).setValue(cg[1].Mileage);
         sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
+        r++;
       }
-
-      r++;
     }
 }
