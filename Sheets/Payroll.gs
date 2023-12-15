@@ -2,6 +2,8 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
       .addItem('Kantime to OnPay', 'Kantime2OnPay')
+      .addSeparator()
+      .addItem('Clear Kantime Table', 'CleanKantimeSheet')
       .addItem('Clear OnPay Table', 'CleanOnPaySheet')
       .addToUi();
 }
@@ -64,18 +66,12 @@ function ReadKantimeHours(){
   return employees;
 }
 
-function CleanOnPaySheet(){
-    let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
-    let r = sheetOnPay.getLastRow();
-
-    if (r > 1) {
-      sheetOnPay.getRange("A2:H" + r).clearContent();
-    }
-}
-
 function Save2OnPay(employees){
     let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
     let r = 2;
+
+    let totals = new Map();
+    totals = { Hours : 0, Mileages: {}};
 
     for (const cg of employees.entries()){
       for (let attr in cg[1]) {
@@ -87,6 +83,12 @@ function Save2OnPay(employees){
           sheetOnPay.getRange("E" + r).setValue(attr);
           sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
           r++;
+          totals.Hours += cg[1][attr].Hours;
+          if (totals.hasOwnProperty(attr)){
+            totals[attr].Hours += cg[1][attr].Hours;
+          } else {
+            totals[attr] = {Hours : cg[1][attr].Hours};
+          }
         }
       }
       if (cg[1].Mileage > 0) {
@@ -97,6 +99,38 @@ function Save2OnPay(employees){
         sheetOnPay.getRange("G" + r).setValue(cg[1].Mileage);
         sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
         r++;
+        // keep totals
+        totals.Mileages[cg[1].ID] = {Name : cg[1].Name, Mileage : cg[1].Mileage};
       }
     }
+    r++;
+    sheetOnPay.getRange("C" + r).setValue("Total Hours");
+    sheetOnPay.getRange("D" + r).setValue(totals.Hours);
+
+    for (let attr in totals) {
+        if (!isNaN(parseInt(attr))) {
+          r++;
+          sheetOnPay.getRange("C" + r).setValue(attr);
+          sheetOnPay.getRange("D" + r).setValue(totals[attr].Hours);
+        }
+    }
 }
+
+function CleanKantimeSheet(){
+    let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
+    let r = sheetKantime.getLastRow();
+
+    if (r > 1) {
+      sheetKantime.getRange("A2:L" + r).clear();
+    }
+}
+
+function CleanOnPaySheet(){
+    let sheetOnPay = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("OnPay");
+    let r = sheetOnPay.getLastRow();
+
+    if (r > 1) {
+      sheetOnPay.getRange("A2:H" + r).clear();
+    }
+}
+
