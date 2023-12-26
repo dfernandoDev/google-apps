@@ -2,6 +2,8 @@ function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
       .addItem('Kantime to OnPay', 'Kantime2OnPay')
+      .addItem('Summerize Hours', 'CreateHoursTable')
+      .addItem('Summerize Mileage', 'CreateMileageTable')
       .addSeparator()
       .addItem('Clear Kantime Table', 'CleanKantimeSheet')
       .addItem('Clear OnPay Table', 'CleanOnPaySheet')
@@ -27,7 +29,7 @@ function ReadKantimeHours(){
     if (earningsCode == "REG") {
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
-        ID : sheetKantime.getRange("B" + r).getValue(),
+        ID : (sheetKantime.getRange("B" + r).getValue()),
         Mileage : mileage,
         [sheetKantime.getRange("F" + r).getValue()] : {
           EarningsCode : earningsCode,
@@ -47,7 +49,7 @@ function ReadKantimeHours(){
     } else if (earningsCode == "MLG"){
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
-        ID : sheetKantime.getRange("B" + r).getValue(),
+        ID : (sheetKantime.getRange("B" + r).getValue()),
         Mileage : mileage
       }
       if (employees.has(cg.ID)){
@@ -71,14 +73,15 @@ function Save2OnPay(employees){
     let r = 2;
 
     let totals = new Map();
-    totals = { Hours : 0, Mileages: {}};
+    totals = { Hours : 0, Miles : 0, Mileage: {}};
 
     for (const cg of employees.entries()){
       for (let attr in cg[1]) {
         if (!isNaN(parseInt(attr))) {
+          let id = '00' + Number(cg[1].ID);
           sheetOnPay.getRange("A" + r).setValue(1);
           sheetOnPay.getRange("B" + r).setValue(1);
-          sheetOnPay.getRange("C" + r).setValue(cg[1].ID);
+          sheetOnPay.getRange("C" + r).setValue("'" + id);
           sheetOnPay.getRange("D" + r).setValue(cg[1][attr].Hours);
           sheetOnPay.getRange("E" + r).setValue(attr);
           sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
@@ -92,18 +95,28 @@ function Save2OnPay(employees){
         }
       }
       if (cg[1].Mileage > 0) {
+        let id = '00' + Number(cg[1].ID);
         sheetOnPay.getRange("A" + r).setValue(1);
-        sheetOnPay.getRange("B" + r).setValue(107);
-        sheetOnPay.getRange("C" + r).setValue(cg[1].ID);
+        // sheetOnPay.getRange("B" + r).setValue(107);
+        sheetOnPay.getRange("B" + r).setValue(350);
+        sheetOnPay.getRange("C" + r).setValue("'" + id);
         sheetOnPay.getRange("F" + r).setValue(1);
         sheetOnPay.getRange("G" + r).setValue(cg[1].Mileage);
         sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
         r++;
         // keep totals
-        totals.Mileages[cg[1].ID] = {Name : cg[1].Name, Mileage : cg[1].Mileage};
+        totals.Mileage[cg[1].ID] = {Name : cg[1].Name, Mileage : cg[1].Mileage};
+        totals.Miles += cg[1].Mileage;
       }
     }
-    r++;
+    sheetOnPay.getRange("D" + r).setFormula("=sum(D2:D" + (r - 1) + ")");
+    sheetOnPay.getRange("G" + r).setFormula("=sum(G2:G" + (r - 1) + ")");
+
+    r +=2;
+    sheetOnPay.getRange("C" + r).setValue("Total Mileage");
+    sheetOnPay.getRange("D" + r).setValue(totals.Miles);
+
+    r +=2;
     sheetOnPay.getRange("C" + r).setValue("Total Hours");
     sheetOnPay.getRange("D" + r).setValue(totals.Hours);
 
@@ -134,3 +147,32 @@ function CleanOnPaySheet(){
     }
 }
 
+function CreateHoursTable() {
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
+  var sourceData = sheetKantime.getRange('A1:L24');
+  var pivotTable = sheetKantime.getRange('A27').createPivotTable(sourceData);
+  var pivotGroup = pivotTable.addRowGroup(1);
+  pivotGroup = pivotTable.addRowGroup(2);
+  pivotGroup.showTotals(false);
+  var criteria = SpreadsheetApp.newFilterCriteria()
+  .setVisibleValues(['REG'])
+  .build();
+  pivotTable.addFilter(5, criteria);
+  var pivotValue = pivotTable.addPivotValue(9, SpreadsheetApp.PivotTableSummarizeFunction.SUM);
+  pivotGroup = pivotTable.addColumnGroup(6);
+};
+
+function CreateMileageTable() {
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
+  var sourceData = sheetKantime.getRange('A1:L24');
+  var pivotTable = sheetKantime.getRange('A38').createPivotTable(sourceData);
+  var pivotGroup = pivotTable.addRowGroup(1);
+  pivotGroup = pivotTable.addRowGroup(2);
+  pivotGroup.showTotals(false);
+  var criteria = SpreadsheetApp.newFilterCriteria()
+  .setVisibleValues(['MLG'])
+  .build();
+  pivotTable.addFilter(5, criteria);
+  var pivotValue = pivotTable.addPivotValue(12, SpreadsheetApp.PivotTableSummarizeFunction.SUM);
+  pivotGroup = pivotTable.addColumnGroup(6);
+};
