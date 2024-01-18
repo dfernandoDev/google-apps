@@ -1,23 +1,23 @@
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('HWCG')
-      .addItem('Kantime to OnPay', 'Kantime2OnPay')
-      .addItem('Summerize Hours', 'CreateHoursTable')
-      .addItem('Summerize Mileage', 'CreateMileageTable')
+      .addItem('Viventium to OnPay', 'Viventium2OnPay')
+      .addItem('Summerize Hours & Mileage', 'CreateHoursMilesTables')
       .addSeparator()
-      .addItem('Clear Kantime Table', 'CleanKantimeSheet')
-      .addItem('Clear OnPay Table', 'CleanOnPaySheet')
+      .addItem('Clear Viventium Worksheet', 'CleanViventiumSheet')
+      .addItem('Clear Hours & Mileage Summary Tables', 'CleanHoursMilesTables')
+      .addItem('Clear OnPay Worksheet', 'CleanOnPaySheet')
       .addToUi();
 }
 
-function Kantime2OnPay() {
+function Viventium2OnPay() {
   CleanOnPaySheet();
   let employees = ReadKantimeHours();
   Save2OnPay (employees);
 }
 
 function ReadKantimeHours(){
-  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
 
   let employees = new Map();
   let r = 2;
@@ -26,7 +26,7 @@ function ReadKantimeHours(){
     let earningsCode = sheetKantime.getRange("E" + r).getValue();
     let cg = {};
 
-    if (earningsCode == "REG") {
+    if (earningsCode == "REG" || earningsCode == "HOL") {
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
         ID : (sheetKantime.getRange("B" + r).getValue()),
@@ -46,6 +46,8 @@ function ReadKantimeHours(){
       } else {
         employees.set(cg.ID, cg)
       }
+    // } else if (earningsCode == "HOL"){
+
     } else if (earningsCode == "MLG"){
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
@@ -80,7 +82,13 @@ function Save2OnPay(employees){
         if (!isNaN(parseInt(attr))) {
           let id = '00' + Number(cg[1].ID);
           sheetOnPay.getRange("A" + r).setValue(1);
-          sheetOnPay.getRange("B" + r).setValue(1);
+          if (cg[1][attr].EarningsCode == 'REG') {
+            sheetOnPay.getRange("B" + r).setValue(1);
+          } else if (cg[1][attr].EarningsCode == 'HOL') {
+            sheetOnPay.getRange("B" + r).setValue(6);
+          } else {
+            SpreadsheetApp.getUi().alert("Unknown Earnings Code " + earningsCode);
+          }
           sheetOnPay.getRange("C" + r).setValue("'" + id);
           sheetOnPay.getRange("D" + r).setValue(cg[1][attr].Hours);
           sheetOnPay.getRange("E" + r).setValue(attr);
@@ -129,11 +137,34 @@ function Save2OnPay(employees){
     }
 }
 
-function CleanKantimeSheet(){
-    let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
+function CreateHoursMilesTables(){
+  CleanHoursMilesTables();
+  CreateHoursTable();
+  CreateMileageTable();
+}
+
+function CleanHoursMilesTables(){
+    let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
+    let lrow = sheetKantime.getLastRow();
+    let r = 1;
+
+    if (r < lrow) {
+      do {
+        r++;
+      } while (!sheetKantime.getRange("A" +  r).isBlank())
+      if (lrow>r) {
+        sheetKantime.getRange("A" + r + ":L" + lrow).clearFormat();
+        sheetKantime.getRange("A" + r + ":L" + lrow).clear();
+      }
+    }
+}
+
+function CleanViventiumSheet(){
+    let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
     let r = sheetKantime.getLastRow();
 
     if (r > 1) {
+      sheetKantime.getRange("A2:L" + r).clearFormat();
       sheetKantime.getRange("A2:L" + r).clear();
     }
 }
@@ -143,14 +174,31 @@ function CleanOnPaySheet(){
     let r = sheetOnPay.getLastRow();
 
     if (r > 1) {
+      sheetOnPay.getRange("A2:H" + r).clearFormat();
       sheetOnPay.getRange("A2:H" + r).clear();
     }
 }
 
+function GetViventiumTableLastRow(){
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
+  let r = 1;
+  do {
+    r++;
+  } while (!sheetKantime.getRange("A" +  r).isBlank())
+
+  if (r>1){
+    r--;
+  }
+  return r;
+}
+
 function CreateHoursTable() {
-  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
-  var sourceData = sheetKantime.getRange('A1:L24');
-  var pivotTable = sheetKantime.getRange('A27').createPivotTable(sourceData);
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
+  // var sourceData = sheetKantime.getRange('A1:L24');
+  //var pivotTable = sheetKantime.getRange('A27').createPivotTable(sourceData);
+  let lastrow = GetViventiumTableLastRow();
+  var sourceData = sheetKantime.getRange('A1:L' + lastrow);
+  var pivotTable = sheetKantime.getRange('A' + (lastrow + 4)).createPivotTable(sourceData);
   var pivotGroup = pivotTable.addRowGroup(1);
   pivotGroup = pivotTable.addRowGroup(2);
   pivotGroup.showTotals(false);
@@ -163,9 +211,12 @@ function CreateHoursTable() {
 };
 
 function CreateMileageTable() {
-  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Kantime");
-  var sourceData = sheetKantime.getRange('A1:L24');
-  var pivotTable = sheetKantime.getRange('A38').createPivotTable(sourceData);
+  let sheetKantime = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Viventium");
+  // var sourceData = sheetKantime.getRange('A1:L24');
+  // var pivotTable = sheetKantime.getRange('A38').createPivotTable(sourceData);
+  let lastrow = GetViventiumTableLastRow();
+  var sourceData = sheetKantime.getRange('A1:L' + lastrow);
+  var pivotTable = sheetKantime.getRange('A' + (sheetKantime.getLastRow() + 4)).createPivotTable(sourceData);
   var pivotGroup = pivotTable.addRowGroup(1);
   pivotGroup = pivotTable.addRowGroup(2);
   pivotGroup.showTotals(false);
