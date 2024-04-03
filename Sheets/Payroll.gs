@@ -22,15 +22,16 @@ function ReadKantimeHours(){
   let employees = new Map();
   let r = 2;
   while(!sheetKantime.getRange("A" + r).isBlank()){
-    let mileage = Number(sheetKantime.getRange("L" + r).getValue());
+    let additionalItem = Number(sheetKantime.getRange("L" + r).getValue());
     let earningsCode = sheetKantime.getRange("E" + r).getValue();
     let cg = {};
 
-    if (earningsCode == "REG" || earningsCode == "HOL") {
+    if (earningsCode == "REG" || earningsCode == "HOL" || earningsCode == "OT") {
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
         ID : (sheetKantime.getRange("B" + r).getValue()),
-        Mileage : mileage,
+        Expense : 0,
+        Mileage : additionalItem,
         [sheetKantime.getRange("F" + r).getValue()] : {
           EarningsCode : earningsCode,
           Hours : sheetKantime.getRange("I" + r).getValue()
@@ -52,10 +53,23 @@ function ReadKantimeHours(){
       cg = {
         Name : sheetKantime.getRange("A" + r).getValue(),
         ID : (sheetKantime.getRange("B" + r).getValue()),
-        Mileage : mileage
+        Mileage : additionalItem,
+        Expense : 0,
       }
       if (employees.has(cg.ID)){
-        employees.get(cg.ID).Mileage += mileage;
+        employees.get(cg.ID).Mileage += additionalItem;
+      } else {
+        employees.set(cg.ID, cg)
+      }
+    } else if (earningsCode == "EXPEN"){
+      cg = {
+        Name : sheetKantime.getRange("A" + r).getValue(),
+        ID : (sheetKantime.getRange("B" + r).getValue()),
+        Expense : additionalItem,
+        Mileage : 0
+      }
+      if (employees.has(cg.ID)){
+        employees.get(cg.ID).Expense += additionalItem;
       } else {
         employees.set(cg.ID, cg)
       }
@@ -75,7 +89,7 @@ function Save2OnPay(employees){
     let r = 2;
 
     let totals = new Map();
-    totals = { Hours : 0, Miles : 0, Mileage: {}};
+    totals = { Hours : 0, Miles : 0, Expenses : 0, Mileage: {}, Expense: {}};
 
     for (const cg of employees.entries()){
       for (let attr in cg[1]) {
@@ -86,8 +100,10 @@ function Save2OnPay(employees){
             sheetOnPay.getRange("B" + r).setValue(1);
           } else if (cg[1][attr].EarningsCode == 'HOL') {
             sheetOnPay.getRange("B" + r).setValue(6);
+          } else if (cg[1][attr].EarningsCode == 'OT') {
+            sheetOnPay.getRange("B" + r).setValue(2);
           } else {
-            SpreadsheetApp.getUi().alert("Unknown Earnings Code " + earningsCode);
+            SpreadsheetApp.getUi().alert("Unknown Earnings Code -> " + cg[1][attr].EarningsCode);
           }
           sheetOnPay.getRange("C" + r).setValue("'" + id);
           sheetOnPay.getRange("D" + r).setValue(cg[1][attr].Hours);
@@ -116,6 +132,19 @@ function Save2OnPay(employees){
         totals.Mileage[cg[1].ID] = {Name : cg[1].Name, Mileage : cg[1].Mileage};
         totals.Miles += cg[1].Mileage;
       }
+      if (cg[1].Expense > 0) {
+        let id = '00' + Number(cg[1].ID);
+        sheetOnPay.getRange("A" + r).setValue(1);
+        sheetOnPay.getRange("B" + r).setValue(118);
+        sheetOnPay.getRange("C" + r).setValue("'" + id);
+        sheetOnPay.getRange("F" + r).setValue(1);
+        sheetOnPay.getRange("G" + r).setValue(cg[1].Expense);
+        sheetOnPay.getRange("H" + r).setValue(cg[1].Name);
+        r++;
+        // keep totals
+        totals.Expense[cg[1].ID] = {Name : cg[1].Name, Expense : cg[1].Expense};
+        totals.Expenses += cg[1].Expense;
+      }
     }
     sheetOnPay.getRange("D" + r).setFormula("=sum(D2:D" + (r - 1) + ")");
     sheetOnPay.getRange("G" + r).setFormula("=sum(G2:G" + (r - 1) + ")");
@@ -123,6 +152,10 @@ function Save2OnPay(employees){
     r +=2;
     sheetOnPay.getRange("C" + r).setValue("Total Mileage");
     sheetOnPay.getRange("D" + r).setValue(totals.Miles);
+
+    r +=2;
+    sheetOnPay.getRange("C" + r).setValue("Total Travel Time");
+    sheetOnPay.getRange("D" + r).setValue(totals.Expenses);
 
     r +=2;
     sheetOnPay.getRange("C" + r).setValue("Total Hours");
@@ -203,7 +236,7 @@ function CreateHoursTable() {
   pivotGroup = pivotTable.addRowGroup(2);
   pivotGroup.showTotals(false);
   var criteria = SpreadsheetApp.newFilterCriteria()
-  .setVisibleValues(['REG'])
+  .setVisibleValues(['REG','OT'])
   .build();
   pivotTable.addFilter(5, criteria);
   var pivotValue = pivotTable.addPivotValue(9, SpreadsheetApp.PivotTableSummarizeFunction.SUM);
