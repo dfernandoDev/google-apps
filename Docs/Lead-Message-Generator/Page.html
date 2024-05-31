@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+</head>
+
+<body>
+  <script>
+    // document.getElementById("generate").addEventListener("click",addRecord);
+
+      function enableDisableClient(bEnable, textBoxID)
+      {
+          document.getElementById(textBoxID).value = ''
+          document.getElementById(textBoxID).disabled = bEnable
+      }
+
+      function addRecord(){
+        var eleEmail = document.getElementById("email");
+        var eleMsgCount = document.getElementById("messagecount");
+        var nameCaller = document.getElementById("caller");
+        var nameClient = document.getElementById("client");
+        var eleSelf = document.getElementById("self");
+        var eleSex = document.getElementsByName("sex");
+        var hwcg = document.getElementById("hwcg");
+
+        var sex = "Male";
+        var email_text = "Text";
+        var self = eleSelf.checked;
+
+        if (eleEmail.checked)
+          email_text = "Email";
+
+        for (i = 0; i < eleSex.length; i++) {
+          if (eleSex[i].checked)
+            sex = eleSex[i].value;
+        }
+
+        var data = {
+          type : email_text,
+          counter : eleMsgCount.value,
+          caller : nameCaller.value,
+          client  : nameClient.value,
+          self : self,
+          sex : sex,
+          hwcg : hwcg.value
+        };
+        google.script.run.processForm(data);
+      }
+
+      function setMessageCount() {
+        var items;
+        if (document.getElementById("email").checked) {
+          items = ["First", "Second"];
+        } else {
+          items = ["First", "Second", "Third"]
+        }
+        var str = ""
+        for (var item of items) {
+          str += "<option>" + item + "</option>"
+        }
+        document.getElementById("messagecount").innerHTML = str;
+      }
+  </script>
+  <table>
+    <tr>
+      <td>
+        <fieldset>
+          <legend>Message Details</legend>
+          <table>
+            <tr>
+              <td>
+                <label for="type">Message Type:</label><br>
+                <input type="radio" value="Email" name="email_text" id="email" checked onclick="setMessageCount()">
+                <label for="Email">Email:</label>
+                <input type="radio" value="Text" name="email_text" id="text" onclick="setMessageCount()">
+                <label for="text">Text Message</label>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label for="messagecount">Message number</label><br><select name="messagecount" id="messagecount"><option>First</option><option>Second</option></select>
+              </td>
+            </tr>
+          </table>
+        </fieldset>
+      </td>
+    </tr>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+        <label for="caller">Caller Name:</label><br>
+        <input type="text" name="caller" id="caller">
+      </td>
+    </tr>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+        <fieldset>
+          <legend>Individual Needing Care</legend>
+          <table>
+            <tr>
+              <td>
+                <input type="checkbox" id="self" name="self" onclick="enableDisableClient(this.checked, 'client')"/>
+                <label for="Self">Self</label><br>
+                <label for="client">Client Name:</label><br>
+                <input type="text" name="client" id="client">
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <label for="Type">Sex:</label><br>
+                <input type="radio" value="Male" name="sex" checked>
+                <label for="Email">Male</label>
+                <input type="radio" value="Female" name="sex">
+                <label for="text">Female</label>
+              </td>
+            </tr>
+          </table>
+      </td>
+    </tr>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+        <label for="hwcg">Your Name:</label>
+        <input type="text" name="hwcg" id="hwcg">
+      </td>
+    </tr>
+    <tr>
+      <td><br></td>
+    </tr>
+  </table>
+  <input type="button" value="Generate Message" id="generate" onclick="addRecord()"/>
+</body>
+
+</html>
