@@ -2,6 +2,17 @@
 <html>
 
 <head>
+  <style>
+    body {background-color: powderblue;}
+    label {
+      font:
+        sans-serif;
+    }
+    input,
+      label {
+        margin: 5;
+    }
+  </style>
   <base target="_top">
 </head>
 
@@ -9,10 +20,20 @@
   <script>
     // document.getElementById("generate").addEventListener("click",addRecord);
 
-      function enableDisableClient(bEnable, textBoxID)
-      {
-          document.getElementById(textBoxID).value = ''
-          document.getElementById(textBoxID).disabled = bEnable
+      function enableRecipientName(ele){
+        var value = ele.value;
+        console.log(value + " " + value.localeCompare("other"));
+        enableTextbox(value.localeCompare("other"), 'client');
+      }
+
+      function enableTextbox(bEnable, txtName){
+          document.getElementById(txtName).value = '';
+          document.getElementById(txtName).disabled = bEnable;
+      }
+
+      function enableRadioButton(bEnable, radioName){
+        document.getElementById(radioName).disabled = bEnable;
+        document.getElementById(radioName).checked = false;
       }
 
       function addRecord(){
@@ -20,13 +41,12 @@
         var eleMsgCount = document.getElementById("messagecount");
         var nameCaller = document.getElementById("caller");
         var nameClient = document.getElementById("client");
-        var eleSelf = document.getElementById("self");
+        var eleRecipient = document.getElementById("recipient");
         var eleSex = document.getElementsByName("sex");
         var hwcg = document.getElementById("hwcg");
 
         var sex = "Male";
         var email_text = "Text";
-        var self = eleSelf.checked;
 
         if (eleEmail.checked)
           email_text = "Email";
@@ -41,7 +61,7 @@
           counter : eleMsgCount.value,
           caller : nameCaller.value,
           client  : nameClient.value,
-          self : self,
+          recipient : eleRecipient.value,
           sex : sex,
           hwcg : hwcg.value
         };
@@ -53,7 +73,7 @@
         if (document.getElementById("email").checked) {
           items = ["First", "Second"];
         } else {
-          items = ["First", "Second", "Third"]
+          items = ["First", "Second", "Third","Fourth"]
         }
         var str = ""
         for (var item of items) {
@@ -105,8 +125,13 @@
           <table>
             <tr>
               <td>
-                <input type="checkbox" id="self" name="self" onclick="enableDisableClient(this.checked, 'client')"/>
-                <label for="Self">Self</label><br>
+                <select name="recipient" id="recipient" onchange="enableRecipientName(this)">
+                  <option value="self">Self</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="parent">Parent</option>
+                  <option value="parents">Parents</option>
+                  <option selected value="other">Other</option>
+                </select><br>
                 <label for="client">Client Name:</label><br>
                 <input type="text" name="client" id="client">
               </td>
@@ -128,7 +153,7 @@
     </tr>
     <tr>
       <td>
-        <label for="hwcg">Your Name:</label>
+        <label for="hwcg">Your Name (HWCG Representative):</label>
         <input type="text" name="hwcg" id="hwcg">
       </td>
     </tr>
